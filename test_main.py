@@ -83,40 +83,13 @@ def test_get_id_valid_id():
     assert response.json() == fake_list[0]
 
 
-def test_post_whitespace():
+@pytest.mark.parametrize("title", ["", "   ", "\n\t"])
+def test_post_invalid(title):
     response = client.post(
         "/tasks",
         json={
-            "title": "   ",
+            "title": title,
             "description": "There goes my stealer",
-            "completed": True,
-        },
-    )
-
-    assert response.status_code == 422
-    assert response.json() == {"detail": "Title can't be empty"}
-
-
-def test_post_escape():
-    response = client.post(
-        "/tasks",
-        json={
-            "title": "\n\t",
-            "description": "Milk, eggs, bread, and vegetables for the week",
-            "completed": True,
-        },
-    )
-
-    assert response.status_code == 422
-    assert response.json() == {"detail": "Title can't be empty"}
-
-
-def test_post_empty():
-    response = client.post(
-        "/tasks",
-        json={
-            "title": "",
-            "description": "Milk, eggs, bread, and vegetables for the week",
             "completed": True,
         },
     )
@@ -148,7 +121,12 @@ def test_post():
     )
 
     assert response.status_code == 201
-    assert response.json() == main.tasks[-1]
+    assert response.json() == {
+        "title": "Buy groceries",
+        "description": "Milk, eggs, bread, and vegetables for the week",
+        "completed": True,
+        "id": 1,
+    }
 
 
 def test_delete_doesnt_repeat_id():
@@ -162,7 +140,6 @@ def test_delete_doesnt_repeat_id():
             },
         )
         assert response.status_code == 201
-        assert response.json() == main.tasks[-1]
 
     response = client.delete("/tasks/10")
     assert response.status_code == 204
@@ -179,12 +156,9 @@ def test_delete_doesnt_repeat_id():
         },
     )
     assert response.status_code == 201
-    assert response.json() == main.tasks[-1]
 
     for task in main.tasks:
-        if task["id"] == 5 or task["id"] == 10:
-            assert False
-        assert True
+        assert task["id"] not in (5, 10)
 
 
 def test_update_doesnt_modify_other():
@@ -198,7 +172,6 @@ def test_update_doesnt_modify_other():
             },
         )
         assert response.status_code == 201
-        assert response.json() == main.tasks[-1]
 
     response = client.put(
         "/tasks/5",
@@ -231,12 +204,10 @@ def test_unique_id():
             },
         )
         assert response.status_code == 201
-        assert response.json() == main.tasks[-1]
 
     for task in main.tasks:
         ids.append(task["id"])
-    if len(ids) != len(set(ids)):
-        assert False
+    assert len(ids) == len(set(ids))
 
 
 def test_deletion_gives_404():
@@ -250,7 +221,6 @@ def test_deletion_gives_404():
             },
         )
         assert response.status_code == 201
-        assert response.json() == main.tasks[-1]
 
     response = client.delete("/tasks/10")
     assert response.status_code == 204
@@ -262,7 +232,8 @@ def test_deletion_gives_404():
     assert response.status_code == 404
 
 
-def test_put_whitespace():
+@pytest.mark.parametrize("title", ["", "   ", "\n\t"])
+def test_put_invalid_title(title):
     response = client.post(
         "/tasks",
         json={
@@ -272,63 +243,15 @@ def test_put_whitespace():
         },
     )
     assert response.status_code == 201
-    assert response.json() == main.tasks[-1]
     response = client.put(
         "/tasks/1",
         json={
-            "title": "   ",
+            "title": title,
             "description": "There goes my stealer",
             "completed": True,
         },
     )
 
-    assert response.status_code == 422
-    assert response.json() == {"detail": "Title can't be empty"}
-
-
-def test_put_escape():
-    response = client.post(
-        "/tasks",
-        json={
-            "title": "title",
-            "description": "Milk, eggs, bread, and vegetables for the week",
-            "completed": True,
-        },
-    )
-    assert response.status_code == 201
-    assert response.json() == main.tasks[-1]
-    response = client.put(
-        "/tasks/1",
-        json={
-            "title": "\n\t",
-            "description": "There goes my stealer",
-            "completed": True,
-        },
-    )
-
-    assert response.status_code == 422
-    assert response.json() == {"detail": "Title can't be empty"}
-
-
-def test_put_empty():
-    response = client.post(
-        "/tasks",
-        json={
-            "title": "title",
-            "description": "Milk, eggs, bread, and vegetables for the week",
-            "completed": True,
-        },
-    )
-    assert response.status_code == 201
-    assert response.json() == main.tasks[-1]
-    response = client.put(
-        "/tasks/1",
-        json={
-            "title": "",
-            "description": "There goes my stealer",
-            "completed": True,
-        },
-    )
     assert response.status_code == 422
     assert response.json() == {"detail": "Title can't be empty"}
 
@@ -343,7 +266,6 @@ def test_put():
         },
     )
     assert response.status_code == 201
-    assert response.json() == main.tasks[-1]
     response = client.put(
         "/tasks/1",
         json={
@@ -365,7 +287,6 @@ def test_put_invalid():
         },
     )
     assert response.status_code == 201
-    assert response.json() == main.tasks[-1]
     response = client.put(
         "/tasks/2",
         json={
@@ -387,7 +308,6 @@ def test_delete_invalid():
         },
     )
     assert response.status_code == 201
-    assert response.json() == main.tasks[-1]
     response = client.delete("/tasks/2")
     assert response.status_code == 404
 
@@ -402,7 +322,12 @@ def test_delete_valid():
         },
     )
     assert response.status_code == 201
-    assert response.json() == main.tasks[-1]
     response = client.delete("/tasks/1")
     assert response.status_code == 204
     assert main.tasks == []
+
+
+def test_get_with_id_string():
+    main.tasks = list(fake_list)
+    response = client.get("/tasks/abc")
+    assert response.status_code == 422
