@@ -178,18 +178,19 @@ def test_update_doesnt_modify_other():
         json={
             "title": "Updated title",
             "description": "Updated desc",
-            "completed": True,
+            "completed": False,
         },
     )
     assert response.status_code == 200
-    assert response.json() == main.tasks[4]
+    assert main.tasks[4]["title"] == "Updated title"
+    assert main.tasks[4]["description"] == "Updated desc"
+    assert main.tasks[4]["completed"] == False
 
     for task in main.tasks:
         if task["id"] != 5 and (
             task["title"] == "Updated title" or task["description"] == "Updated desc"
         ):
             assert False
-        assert True
 
 
 def test_unique_id():
@@ -208,6 +209,7 @@ def test_unique_id():
     for task in main.tasks:
         ids.append(task["id"])
     assert len(ids) == len(set(ids))
+    assert len(ids) == 100
 
 
 def test_deletion_gives_404():
@@ -271,10 +273,13 @@ def test_put():
         json={
             "title": "hello",
             "description": "There goes my stealer",
-            "completed": True,
+            "completed": False,
         },
     )
     assert response.status_code == 200
+    assert main.tasks[0]["title"] == "hello"
+    assert main.tasks[0]["description"] == "There goes my stealer"
+    assert main.tasks[0]["completed"] == False
 
 
 def test_put_invalid():
@@ -330,4 +335,36 @@ def test_delete_valid():
 def test_get_with_id_string():
     main.tasks = list(fake_list)
     response = client.get("/tasks/abc")
+    assert response.status_code == 422
+
+
+def test_post_missing_title():
+    response = client.post(
+        "/tasks",
+        json={
+            "description": "There goes my stealer",
+            "completed": True,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_put_missing_title():
+    response = client.post(
+        "/tasks",
+        json={
+            "title": "title",
+            "description": "Milk, eggs, bread, and vegetables for the week",
+            "completed": True,
+        },
+    )
+    assert response.status_code == 201
+    response = client.put(
+        "/tasks/1",
+        json={
+            "description": "There goes my stealer",
+            "completed": False,
+        },
+    )
     assert response.status_code == 422
